@@ -10,6 +10,13 @@ use App\Models\Fine;
 
 new class extends Component
 {
+    public bool $isStaff = false;
+
+    public function mount()
+    {
+        $this->isStaff = auth()->user()->isStaff();
+    }
+
     #[Computed]
     public function totalBooks()
     {
@@ -31,33 +38,50 @@ new class extends Component
     #[Computed]
     public function activeLoans()
     {
-        return Loan::where('status', 'borrowed')->orWhere('status', 'partial')->count();
+        $query = Loan::where(fn ($q) => $q->where('status', 'borrowed')->orWhere('status', 'partial'));
+
+        if (! $this->isStaff) {
+            $query->where('user_id', auth()->id());
+        }
+
+        return $query->count();
     }
 
     #[Computed]
     public function totalFines()
     {
-        return Fine::where('paid', false)->sum('amount');
+        $query = Fine::where('paid', false);
+
+        if (! $this->isStaff) {
+            $query->whereHas('loanDetail.loan', fn ($q) => $q->where('user_id', auth()->id()));
+        }
+
+        return $query->sum('amount');
     }
 
     #[Computed]
     public function recentLoans()
     {
-        return Loan::with(['user', 'details.book'])
-            ->latest()
-            ->take(5)
-            ->get();
+        $query = Loan::with(['user', 'details.book'])->latest();
+
+        if (! $this->isStaff) {
+            $query->where('user_id', auth()->id());
+        }
+
+        return $query->take(5)->get();
     }
 };
 ?>
 
 <div class="max-w-7xl mx-auto space-y-6">
     <flux:heading size="xl">Dashboard</flux:heading>
-    <flux:subheading size="lg">Statistik perpustakaan digital</flux:subheading>
+    <flux:subheading size="lg">
+        {{ $isStaff ? 'Statistik perpustakaan digital' : 'Ringkasan peminjaman buku kamu' }}
+    </flux:subheading>
     <flux:separator variant="subtle" />
 
     {{-- Stats Cards --}}
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-{{ $isStaff ? 5 : 4 }} gap-4">
         <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl p-5 space-y-2">
             <flux:text class="text-zinc-500 text-sm">Total Buku</flux:text>
             <p class="text-3xl font-bold text-zinc-900 dark:text-white">{{ $this->totalBooks }}</p>
@@ -70,20 +94,22 @@ new class extends Component
             <flux:badge color="zinc">Kategori</flux:badge>
         </div>
 
-        <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl p-5 space-y-2">
-            <flux:text class="text-zinc-500 text-sm">Total Mahasiswa</flux:text>
-            <p class="text-3xl font-bold text-zinc-900 dark:text-white">{{ $this->totalUsers }}</p>
-            <flux:badge color="blue">Mahasiswa</flux:badge>
-        </div>
+        @if ($isStaff)
+            <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl p-5 space-y-2">
+                <flux:text class="text-zinc-500 text-sm">Total Mahasiswa</flux:text>
+                <p class="text-3xl font-bold text-zinc-900 dark:text-white">{{ $this->totalUsers }}</p>
+                <flux:badge color="blue">Mahasiswa</flux:badge>
+            </div>
+        @endif
 
         <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl p-5 space-y-2">
-            <flux:text class="text-zinc-500 text-sm">Peminjaman Aktif</flux:text>
+            <flux:text class="text-zinc-500 text-sm">{{ $isStaff ? 'Peminjaman Aktif' : 'Peminjaman Aktif Saya' }}</flux:text>
             <p class="text-3xl font-bold text-zinc-900 dark:text-white">{{ $this->activeLoans }}</p>
             <flux:badge color="yellow">Berlangsung</flux:badge>
         </div>
 
         <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl p-5 space-y-2">
-            <flux:text class="text-zinc-500 text-sm">Denda Belum Dibayar</flux:text>
+            <flux:text class="text-zinc-500 text-sm">{{ $isStaff ? 'Denda Belum Dibayar' : 'Denda Saya' }}</flux:text>
             <p class="text-3xl font-bold text-red-500">Rp {{ number_format($this->totalFines) }}</p>
             <flux:badge color="red">Denda</flux:badge>
         </div>
@@ -91,21 +117,25 @@ new class extends Component
 
     {{-- Recent Loans --}}
     <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl p-5 space-y-4">
-        <flux:heading size="md">Peminjaman Terbaru</flux:heading>
+        <flux:heading size="md">{{ $isStaff ? 'Peminjaman Terbaru' : 'Peminjaman Saya' }}</flux:heading>
         <flux:separator variant="subtle" />
 
         <flux:table>
             <flux:table.columns>
-                <flux:table.column>Mahasiswa</flux:table.column>
+                @if ($isStaff)
+                    <flux:table.column>Mahasiswa</flux:table.column>
+                @endif
                 <flux:table.column>Buku</flux:table.column>
                 <flux:table.column>Tanggal Pinjam</flux:table.column>
                 <flux:table.column>Jatuh Tempo</flux:table.column>
                 <flux:table.column>Status</flux:table.column>
             </flux:table.columns>
             <flux:table.rows>
-                @foreach ($this->recentLoans as $loan)
+                @forelse ($this->recentLoans as $loan)
                     <flux:table.row>
-                        <flux:table.cell>{{ $loan->user->name }}</flux:table.cell>
+                        @if ($isStaff)
+                            <flux:table.cell>{{ $loan->user->name }}</flux:table.cell>
+                        @endif
                         <flux:table.cell>
                             {{ $loan->details->pluck('book.title')->join(', ') }}
                         </flux:table.cell>
@@ -117,7 +147,13 @@ new class extends Component
                             </flux:badge>
                         </flux:table.cell>
                     </flux:table.row>
-                @endforeach
+                @empty
+                    <flux:table.row>
+                        <flux:table.cell colspan="{{ $isStaff ? 5 : 4 }}" class="text-center text-zinc-500">
+                            Belum ada peminjaman
+                        </flux:table.cell>
+                    </flux:table.row>
+                @endforelse
             </flux:table.rows>
         </flux:table>
     </div>

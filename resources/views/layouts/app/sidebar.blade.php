@@ -16,21 +16,23 @@
                         {{ __('Dashboard') }}
                     </flux:sidebar.item>
 
-                    <flux:sidebar.item
-                        icon="folder"
-                        :href="route('category.index')"
-                        :current="request()->routeIs('category.index')"
-                        wire:navigate>
-                        {{ __('Category') }}
-                    </flux:sidebar.item>
+                    @if (auth()->user()->isStaff())
+                        <flux:sidebar.item
+                            icon="folder"
+                            :href="route('category.index')"
+                            :current="request()->routeIs('category.index')"
+                            wire:navigate>
+                            {{ __('Category') }}
+                        </flux:sidebar.item>
 
-                    <flux:sidebar.item icon="book-open"
-                        :href="route('book.index')"
-                        :current="request()->routeIs('book.index')"
-                        wire:navigate
-                    >
-                        {{ __('Book') }}
-                    </flux:sidebar.item>
+                        <flux:sidebar.item icon="book-open"
+                            :href="route('book.index')"
+                            :current="request()->routeIs('book.index')"
+                            wire:navigate
+                        >
+                            {{ __('Book') }}
+                        </flux:sidebar.item>
+                    @endif
 
                     <flux:sidebar.item icon="clipboard-document-list"
                         :href="route('loan.index')"
@@ -40,13 +42,15 @@
                         {{ __('Peminjaman') }}
                     </flux:sidebar.item>
 
-                    <flux:sidebar.item icon="users"
-                        :href="route('user.index')"
-                        :current="request()->routeIs('user.index')"
-                        wire:navigate
-                    >
-                        {{ __('Users') }}
-                    </flux:sidebar.item>
+                    @if (auth()->user()->isAdmin())
+                        <flux:sidebar.item icon="users"
+                            :href="route('user.index')"
+                            :current="request()->routeIs('user.index')"
+                            wire:navigate
+                        >
+                            {{ __('Users') }}
+                        </flux:sidebar.item>
+                    @endif
 
                 </flux:sidebar.group>
             </flux:sidebar.nav>

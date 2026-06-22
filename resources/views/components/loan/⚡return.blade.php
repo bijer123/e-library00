@@ -17,7 +17,7 @@ new class extends Component
         $this->detail = LoanDetail::with(['loan', 'book'])->find($id);
 
         $dueDate = $this->detail->loan->due_date;
-        $lateDays = now()->gt($dueDate) ? now()->diffInDays($dueDate) : 0;
+        $lateDays = now()->gt($dueDate) ? (int) now()->diffInDays($dueDate, true) : 0;
         $this->previewFine = $lateDays * 1000; // Rule: denda Rp1.000/hari
 
         Flux::modal('return-loan')->show();
@@ -28,7 +28,7 @@ new class extends Component
         DB::transaction(function () {
             $returnedAt = now();
             $dueDate = $this->detail->loan->due_date;
-            $lateDays = $returnedAt->gt($dueDate) ? $returnedAt->diffInDays($dueDate) : 0;
+            $lateDays = $returnedAt->gt($dueDate) ? (int) $returnedAt->diffInDays($dueDate, true) : 0;
             $fineAmount = $lateDays * 1000;
 
             $this->detail->update([

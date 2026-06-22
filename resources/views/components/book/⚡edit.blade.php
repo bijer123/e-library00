@@ -39,6 +39,17 @@ new class extends Component
     }
 
     public function deleteBook() {
+        $isBorrowed = $this->form->book->loanDetails()
+            ->where('status', 'borrowed')
+            ->exists();
+
+        if ($isBorrowed) {
+            session()->flash('error', 'Buku tidak bisa dihapus karena sedang dipinjam.');
+            Flux::modal('delete-book')->close();
+            $this->redirectRoute('book.index', navigate: true);
+            return;
+        }
+
         $this->form->book->delete();
         Flux::modal('delete-book')->close();
         session()->flash('success', 'Buku berhasil dihapus');

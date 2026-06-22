@@ -15,10 +15,15 @@ new class extends Component
     #[Computed]
     public function loans()
     {
-        return Loan::query()
+        $query = Loan::query()
             ->with(['user', 'details.book', 'details.fine'])
-            ->latest()
-            ->paginate(5);
+            ->latest();
+
+        if (! auth()->user()->isStaff()) {
+            $query->where('user_id', auth()->id());
+        }
+
+        return $query->paginate(5);
     }
 
     public function exportExcel()
@@ -40,7 +45,9 @@ new class extends Component
 
 <div class="max-w-7xl mx-auto space-y-4">
     <flux:heading size="xl">Peminjaman</flux:heading>
-    <flux:subheading size="lg">Kelola transaksi peminjaman & pengembalian buku</flux:subheading>
+    <flux:subheading size="lg">
+        {{ auth()->user()->isStaff() ? 'Kelola transaksi peminjaman & pengembalian buku' : 'Riwayat peminjaman buku kamu' }}
+    </flux:subheading>
     <flux:separator variant="subtle" />
 
     <div class="flex items-center gap-3">
@@ -48,8 +55,10 @@ new class extends Component
             <flux:button variant="primary" icon="plus">Pinjam Buku</flux:button>
         </flux:modal.trigger>
 
-        <flux:button wire:click="exportExcel" icon="table-cells">Export Excel</flux:button>
-        <flux:button wire:click="exportPdf" icon="document-text">Export PDF</flux:button>
+        @if (auth()->user()->isAdmin())
+            <flux:button wire:click="exportExcel" icon="table-cells">Export Excel</flux:button>
+            <flux:button wire:click="exportPdf" icon="document-text">Export PDF</flux:button>
+        @endif
     </div>
 
     <livewire:loan.create />
@@ -58,7 +67,7 @@ new class extends Component
     <x-flash-message />
 
     <div class="space-y-4">
-        @foreach ($this->loans as $loan)
+        @forelse ($this->loans as $loan)
             <div class="border border-zinc-200 dark:border-zinc-800 rounded-lg p-4 space-y-3">
                 <div class="flex items-center justify-between">
                     <div>
@@ -104,7 +113,11 @@ new class extends Component
                     </flux:table.rows>
                 </flux:table>
             </div>
-        @endforeach
+        @empty
+            <div class="border border-zinc-200 dark:border-zinc-800 rounded-lg p-8 text-center text-zinc-500">
+                Belum ada riwayat peminjaman
+            </div>
+        @endforelse
     </div>
 
     {{ $this->loans->links() }}
